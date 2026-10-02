@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: worker
+  main:
+    web-application-type: none
+
+management:
+  observations:
+    annotations:
+      enabled: true # turns @Observed methods into spans
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_TRACES_ENDPOINT:http://otel-collector.argo:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+logging:
+  pattern:
+    correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-}] "

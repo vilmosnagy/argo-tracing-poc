@@ -1,0 +1,54 @@
+# The two Java apps, next to Argo in the argo namespace.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caller
+spec:
+  selector:
+    matchLabels: {app: caller}
+  template:
+    metadata:
+      labels: {app: caller}
+    spec:
+      containers:
+        - name: caller
+          image: localhost/argo-poc/caller:dev
+          imagePullPolicy: Never
+          ports: [{containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: 8080}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caller
+spec:
+  selector: {app: caller}
+  ports: [{port: 8080}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: callee
+spec:
+  selector:
+    matchLabels: {app: callee}
+  template:
+    metadata:
+      labels: {app: callee}
+    spec:
+      containers:
+        - name: callee
+          image: localhost/argo-poc/callee:dev
+          imagePullPolicy: Never
+          ports: [{containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: 8080}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: callee
+spec:
+  selector: {app: callee}
+  ports: [{port: 8080}]

@@ -1,0 +1,74 @@
+# The dag-diamond example, with every step running one of our apps instead of echoing.
+#   A -> B, C (in parallel) -> D
+# A and B call the callee app over HTTP, C runs the worker app as its main container,
+# D tells the caller app that the job finished. The count parameters set how long each step works:
+# one prime (A, B) or Fibonacci number (C) per second.
+# Every pod gets a TRACEPARENT env var from the workflow-controller: curl forwards it as the
+# traceparent header, and the worker reads it from its environment, so all of them join the
+# trace the caller started.
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: diamond-
+spec:
+  entrypoint: diamond
+  arguments:
+    parameters:
+      - name: job
+        value: unknown
+  templates:
+    - name: diamond
+      dag:
+        tasks:
+          - name: A
+            template: process
+            arguments:
+              parameters: [{name: step, value: A}, {name: count, value: "20"}]
+          - name: B
+            dependencies: [A]
+            template: process
+            arguments:
+              parameters: [{name: step, value: B}, {name: count, value: "10"}]
+          - name: C
+            dependencies: [A]
+            template: calculate
+            arguments:
+              parameters: [{name: count, value: "20"}]
+          - name: D
+            dependencies: [B, C]
+            template: notify-finished
+
+    - name: process
+      inputs:
+        parameters:
+          - name: step
+          - name: count
+      container:
+        image: docker.io/curlimages/curl:8.11.1
+        command: [sh, -c]
+        args:
+          - |
+            echo "step {{inputs.parameters.step}}: TRACEPARENT=$TRACEPARENT"
+            curl -sSf -X POST -H "traceparent: $TRACEPARENT" \
+              "http://callee.argo:8080/steps/{{inputs.parameters.step}}?count={{inputs.parameters.count}}&workflow={{workflow.name}}&job={{workflow.parameters.job}}"
+
+    - name: calculate
+      inputs:
+        parameters:
+          - name: count
+      container:
+        image: localhost/argo-poc/worker:dev
+        imagePullPolicy: Never
+        # Argo needs the command spelled out: it can't look up the entrypoint of an image that isn't in a registry
+        command: [java, -jar, /app.jar]
+        args: ["--count={{inputs.parameters.count}}"]
+
+    - name: notify-finished
+      container:
+        image: docker.io/curlimages/curl:8.11.1
+        command: [sh, -c]
+        args:
+          - |
+            echo "notify: TRACEPARENT=$TRACEPARENT"
+            curl -sSf -X POST -H "traceparent: $TRACEPARENT" \
+              "http://caller.argo:8080/callbacks/finished?workflow={{workflow.name}}&job={{workflow.parameters.job}}"
