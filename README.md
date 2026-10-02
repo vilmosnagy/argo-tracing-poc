@@ -6,7 +6,8 @@ OpenTelemetry SDK would do, and nothing about them is part of the proposal.
 
 The Argo change lives on
 [`vilmosnagy/argo@feat/otel-trace-context-annotations`](https://github.com/vilmosnagy/argo/tree/feat/otel-trace-context-annotations)
-(one commit on top of `main`).
+(on top of `main`), proposed upstream in [argoproj/argo-workflows#17118](https://github.com/argoproj/argo-workflows/pull/17118)
+for issue [#17117](https://github.com/argoproj/argo-workflows/issues/17117).
 
 ## The problem
 
